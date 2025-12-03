@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Guess The Word — Web Client</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Guess The Word</h1>
+      <p>Minimal web client — subscribe to room events and play.</p>
+    </header>
+
+    <section class="panel">
+      <h2>Setup</h2>
+      <div class="grid">
+        <label>Username <input id="username" placeholder="Alice" /></label>
+        <button id="registerBtn">Register</button>
+      </div>
+      <div class="grid">
+        <button id="createRoomBtn">Create Room</button>
+        <label>Room ID <input id="roomIdInput" placeholder="room id" /></label>
+        <button id="joinRoomBtn">Join Room</button>
+      </div>
+      <div class="grid">
+        <button id="startBtn">Start Game</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Play</h2>
+      <div class="grid">
+        <label>Letter <input id="letterInput" maxlength="1" placeholder="a" /></label>
+        <button id="guessBtn">Guess</button>
+      </div>
+      <div id="state" class="state"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Events</h2>
+      <pre id="events" class="events"></pre>
+    </section>
+
+    <script src="app.js"></script>
+  </body>
+  </html>

@@ -1,0 +1,13 @@
+:root { --bg:#0b132b; --fg:#e0e0e0; --accent:#6fffe9; --panel:#1c2541; --btn:#3a506b; }
+* { box-sizing: border-box; }
+body { margin:0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+header { padding: 16px 20px; border-bottom: 1px solid #223; }
+h1 { margin:0 0 6px; }
+.panel { padding:16px 20px; background: var(--panel); margin:16px; border-radius:8px; }
+.grid { display:flex; gap:12px; align-items:center; margin:8px 0; flex-wrap:wrap; }
+label { display:flex; gap:8px; align-items:center; }
+input { padding:8px 10px; border-radius:6px; border:1px solid #444; background:#101522; color: var(--fg); }
+button { padding:8px 12px; border-radius:6px; border:0; background: var(--btn); color: var(--fg); cursor:pointer; }
+button:hover { filter: brightness(1.1); }
+.state { margin-top:8px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+.events { background:#0f172a; padding:12px; border-radius:8px; min-height:140px; }
