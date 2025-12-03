@@ -27,3 +27,8 @@ app.get('/users/:id', (req, res) => {
 app.listen(port, () => {
   console.log(`User Service running on http://localhost:${port}`);
 });
+
+// Health check
+app.get('/health', (_req, res) => {
+  res.send({ status: 'ok' });
+});

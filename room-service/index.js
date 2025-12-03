@@ -93,6 +93,11 @@ server.on('upgrade', (request, socket, head) => {
   });
 });
 
+// Health check
+app.get('/health', (_req, res) => {
+  res.send({ status: 'ok' });
+});
+
 wss.on('connection', (ws) => {
   ws.on('message', (raw) => {
     let msg;

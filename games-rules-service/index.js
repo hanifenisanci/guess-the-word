@@ -38,7 +38,8 @@ app.post('/games/:id/guess', (req, res) => {
 
   game.guessedLetters.push(letter);
 
-  if (!game.word.includes(letter)) {
+  const correct = game.word.includes(letter);
+  if (!correct) {
     game.remainingAttempts -= 1;
   }
 
@@ -53,7 +54,9 @@ app.post('/games/:id/guess', (req, res) => {
   res.send({
     revealed,
     remainingAttempts: game.remainingAttempts,
-    status: game.status
+    status: game.status,
+    correct,
+    guess: letter
   });
 });
 
@@ -66,8 +69,14 @@ app.get('/games/:id', (req, res) => {
   res.send({
     revealed,
     remainingAttempts: game.remainingAttempts,
-    status: game.status
+    status: game.status,
+    guessedLetters: game.guessedLetters
   });
+});
+
+// Health check
+app.get('/health', (_req, res) => {
+  res.send({ status: 'ok' });
 });
 
 app.listen(port, () => {
