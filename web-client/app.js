@@ -35,7 +35,13 @@ function setState(s) {
 function ensureWs() {
   if (ws && ws.readyState === WebSocket.OPEN) return;
   ws = new WebSocket('ws://localhost:3002/ws');
-  ws.addEventListener('open', () => logEvent('[ws] connected'));
+  ws.addEventListener('open', () => {
+    logEvent('[ws] connected');
+    // Identify with current user if available
+    if (user?.id) {
+      ws.send(JSON.stringify({ action: 'identify', userId: user.id }));
+    }
+  });
   ws.addEventListener('message', (ev) => {
     try {
       const msg = JSON.parse(ev.data);

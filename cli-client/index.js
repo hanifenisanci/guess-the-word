@@ -125,7 +125,13 @@ mainMenu();
 function ensureWs() {
   if (ws && ws.readyState === WebSocket.OPEN) return;
   ws = new WebSocket('ws://localhost:3002/ws');
-  ws.on('open', () => console.log(chalk.gray('[ws] connected')));
+  ws.on('open', () => {
+    console.log(chalk.gray('[ws] connected'));
+    // Identify this socket with the current user (if available)
+    if (userId) {
+      ws.send(JSON.stringify({ action: 'identify', userId }));
+    }
+  });
   ws.on('message', (m) => {
     try {
       const msg = JSON.parse(m.toString());
