@@ -40,7 +40,7 @@ function broadcast(topic, type, data) {
 // Create a new room
 app.post('/rooms', (req, res) => {
   const roomId = Date.now().toString();
-  rooms[roomId] = { id: roomId, players: [] };
+  rooms[roomId] = { id: roomId, players: [], status: 'waiting' };
   // Emit room.created on room topic so clients can subscribe early
   broadcast(`room:${roomId}`, 'room.created', { roomId, players: [] , status: 'waiting' });
   res.status(201).send(rooms[roomId]);
@@ -60,6 +60,7 @@ app.put('/rooms/:id/join', async (req, res) => {
     const userRes = await axios.get(`http://localhost:3001/users/${userId}`);
     room.players.push(userRes.data);
     const status = room.players.length === 2 ? 'ready' : 'waiting';
+    room.status = status;
     // Emit room.joined so subscribers see player list updates
     broadcast(`room:${room.id}`, 'room.joined', { roomId: room.id, user: userRes.data, players: room.players, status });
     res.send(room);
@@ -74,6 +75,34 @@ app.get('/rooms/:id', (req, res) => {
   if (!room) return res.status(404).send({ error: 'Room not found' });
 
   res.send(room);
+});
+
+// Start a game in a room
+app.post('/rooms/:id/start', async (req, res) => {
+  const room = rooms[req.params.id];
+  if (!room) return res.status(404).send({ error: 'Room not found' });
+
+  if (room.players.length < 2) {
+    return res.status(400).send({ error: 'Need 2 players to start' });
+  }
+  if (room.status === 'active') {
+    return res.status(409).send({ error: 'Game already started' });
+  }
+
+  try {
+    const createRes = await axios.post('http://localhost:3003/games', { roomId: room.id });
+    const gameId = createRes.data.gameId;
+    const starter = Math.random() < 0.5 ? room.players[0] : room.players[1];
+    room.gameId = gameId;
+    room.currentTurn = starter.id;
+    room.status = 'active';
+
+    broadcast(`room:${room.id}`, 'room.started', { roomId: room.id, gameId, currentTurn: room.currentTurn, status: room.status });
+
+    res.send({ roomId: room.id, gameId, currentTurn: room.currentTurn, status: room.status });
+  } catch (err) {
+    res.status(500).send({ error: 'Failed to create game' });
+  }
 });
 
 const server = app.listen(port, () => {
