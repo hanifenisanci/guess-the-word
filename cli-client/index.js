@@ -16,7 +16,7 @@ async function mainMenu() {
         '1. Register User',
         '2. Create Room',
         '3. Join Room',
-        '4. Play Game',
+        '4. Start Game',
         '5. Exit'
       ]
     }
@@ -38,7 +38,7 @@ async function registerUser() {
     const { name } = await inquirer.prompt([
       { type: 'input', name: 'name', message: 'Enter your name:' }
     ]);
-    const res = await axios.post('http://localhost:3001/users', { name });
+    const res = await axios.post('http://localhost:3001/users', { username: name });
     userId = res.data.id;
     console.log(chalk.green(`Registered as ${name} (ID: ${userId})`));
   } catch (err) {
@@ -71,13 +71,18 @@ async function joinRoom() {
 }
 
 async function startGame() {
+  if (!roomId) {
+    console.log(chalk.red('⚠️ You must create and join a room first.'));
+    return;
+  }
   try {
-    const res = await axios.post('http://localhost:3003/games');
+    const res = await axios.post(`http://localhost:3002/rooms/${roomId}/start`);
     gameId = res.data.gameId;
-    console.log(chalk.yellow(`🎮 Game started (ID: ${gameId})`));
+    console.log(chalk.yellow(`🎮 Game started (Room: ${roomId}, Game: ${gameId})`));
+    console.log(chalk.yellow(`Current turn: ${res.data.currentTurn}`));
     await playGameLoop();
   } catch (err) {
-    console.log(chalk.red('❌ Failed to start game. Is games-rules-service running?'));
+    console.log(chalk.red('❌ Failed to start game. Is room-service and games-rules-service running?'));
   }
 }
 
@@ -90,14 +95,16 @@ async function playGameLoop() {
     ]);
 
     try {
-      const res = await axios.post(`http://localhost:3003/games/${gameId}/guess`, { letter });
+      const res = await axios.post(`http://localhost:3002/rooms/${roomId}/guess`, { userId, letter });
       status = res.data.status;
 
       console.log(chalk.cyan(`Revealed: ${res.data.revealed}`));
       console.log(chalk.cyan(`Remaining Attempts: ${res.data.remainingAttempts}`));
       console.log(chalk.cyan(`Status: ${status}`));
+      console.log(chalk.cyan(`Next Turn: ${res.data.currentTurn}`));
     } catch (err) {
-      console.log(chalk.red('❌ Error making guess. Is games-rules-service running?'));
+      const msg = err?.response?.data?.error || 'Error making guess.';
+      console.log(chalk.red(`❌ ${msg} Is room-service running?`));
     }
   }
 
