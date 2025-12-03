@@ -1,11 +1,13 @@
 const express = require('express');
 const fs = require('fs');
+const path = require('path');
 const app = express();
 const port = 3003;
 
 app.use(express.json());
 
-const words = fs.readFileSync('words.txt', 'utf-8')
+const dictPath = path.resolve(__dirname, '..', 'words.txt');
+const words = fs.readFileSync(dictPath, 'utf-8')
   .split('\n')
   .map(w => w.trim())
   .filter(w => w.length >= 4); // Optional: filter short words
