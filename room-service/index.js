@@ -105,6 +105,52 @@ app.post('/rooms/:id/start', async (req, res) => {
   }
 });
 
+// Make a guess via room (turn validation + proxy to games service)
+app.post('/rooms/:id/guess', async (req, res) => {
+  const room = rooms[req.params.id];
+  const { userId, letter } = req.body || {};
+  if (!room) return res.status(404).send({ error: 'Room not found' });
+  if (room.status !== 'active' || !room.gameId) return res.status(400).send({ error: 'Game not active' });
+  if (!userId || typeof letter !== 'string' || letter.length !== 1 || !/^[a-z]$/i.test(letter)) {
+    return res.status(400).send({ error: 'Invalid guess payload' });
+  }
+  if (room.currentTurn !== userId) {
+    // Emit rejection for subscribers
+    broadcast(`room:${room.id}`, 'guess.rejected', { roomId: room.id, gameId: room.gameId, userId, letter, reason: 'not-your-turn' });
+    return res.status(409).send({ error: 'Not your turn' });
+  }
+
+  try {
+    const guessRes = await axios.post(`http://localhost:3003/games/${room.gameId}/guess`, { letter: letter.toLowerCase() });
+    const result = guessRes.data;
+
+    // Broadcast guess result
+    broadcast(`room:${room.id}`, 'guess.accepted', { roomId: room.id, gameId: room.gameId, userId, letter: result.guess, revealed: result.revealed, correct: result.correct, remainingAttempts: result.remainingAttempts, status: result.status });
+
+    if (result.status === 'playing') {
+      // Switch turn to the other player
+      const other = room.players.find(p => p.id !== userId);
+      room.currentTurn = other?.id || room.currentTurn;
+      broadcast(`room:${room.id}`, 'turn.changed', { roomId: room.id, gameId: room.gameId, currentTurn: room.currentTurn });
+    } else if (result.status === 'won') {
+      broadcast(`room:${room.id}`, 'game.won', { roomId: room.id, gameId: room.gameId, winner: userId, revealed: result.revealed, remainingAttempts: result.remainingAttempts });
+      room.status = 'finished';
+      broadcast(`room:${room.id}`, 'room.finished', { roomId: room.id, reason: 'game-finished' });
+    } else if (result.status === 'lost') {
+      broadcast(`room:${room.id}`, 'game.lost', { roomId: room.id, gameId: room.gameId, revealed: result.revealed, remainingAttempts: result.remainingAttempts });
+      room.status = 'finished';
+      broadcast(`room:${room.id}`, 'room.finished', { roomId: room.id, reason: 'game-finished' });
+    }
+
+    res.send({ roomId: room.id, gameId: room.gameId, ...result, currentTurn: room.currentTurn, status: room.status === 'finished' ? result.status : 'playing' });
+  } catch (err) {
+    const msg = err?.response?.data || { error: 'Guess failed' };
+    // If letter already guessed or other validation, emit rejection
+    broadcast(`room:${room.id}`, 'guess.rejected', { roomId: room.id, gameId: room.gameId, userId, letter, reason: msg.error || 'invalid' });
+    res.status(err?.response?.status || 400).send(msg);
+  }
+});
+
 const server = app.listen(port, () => {
   console.log(`Room Service running on http://localhost:${port}`);
 });
