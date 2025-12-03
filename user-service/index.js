@@ -6,10 +6,10 @@ app.use(express.json());
 
 const users = {}; // In-memory user store
 
-// Register user
+// Register user (HTTP endpoint)
 app.post('/users', (req, res) => {
-  const { username } = req.body;
-  if (!username) return res.status(400).send({ error: 'Username is required' });
+  const username = req.body.username || req.body.name;
+  if (!username) return res.status(400).send({ error: 'username is required' });
 
   const id = Date.now().toString();
   users[id] = { id, username };
