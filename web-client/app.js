@@ -8,6 +8,7 @@ let user = null;
 let roomId = null;
 let gameId = null;
 let ws;
+let heartbeat;
 
 function logEvent(obj) {
   const pre = el('events');
@@ -57,6 +58,20 @@ function ensureWs() {
     }
   });
   ws.addEventListener('close', () => logEvent('[ws] disconnected'));
+
+  // Heartbeat every 30s
+  ws.addEventListener('open', () => {
+    clearInterval(heartbeat);
+    heartbeat = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: 'ping', nonce: Date.now().toString() }));
+      }
+    }, 30000);
+  });
+  ws.addEventListener('close', () => {
+    clearInterval(heartbeat);
+    heartbeat = null;
+  });
 }
 
 function subscribeToRoom(id) {

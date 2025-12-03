@@ -7,6 +7,7 @@ let userId = null;
 let roomId = null;
 let gameId = null;
 let ws = null;
+let wsHeartbeat = null;
 
 async function mainMenu() {
   const { action } = await inquirer.prompt([
@@ -147,6 +148,20 @@ function ensureWs() {
     } catch (_) {}
   });
   ws.on('close', () => console.log(chalk.gray('[ws] disconnected')));
+
+  // Heartbeat every 30s
+  ws.on('open', () => {
+    clearInterval(wsHeartbeat);
+    wsHeartbeat = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: 'ping', nonce: Date.now().toString() }));
+      }
+    }, 30000);
+  });
+  ws.on('close', () => {
+    clearInterval(wsHeartbeat);
+    wsHeartbeat = null;
+  });
 }
 
 function subscribeToRoom(id) {
