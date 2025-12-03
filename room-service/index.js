@@ -10,16 +10,25 @@ const rooms = {}; // In-memory room store
 
 // --- Minimal WS hub (subscribe/unsubscribe/ping) ---
 const topicSubs = new Map(); // topic => Set<WebSocket>
+const wsMeta = new WeakMap(); // ws => { userId?: string, topics: Set<string> }
 
 function subscribe(ws, topic) {
   if (!topicSubs.has(topic)) topicSubs.set(topic, new Set());
   topicSubs.get(topic).add(ws);
+  const meta = wsMeta.get(ws) || { topics: new Set() };
+  meta.topics.add(topic);
+  wsMeta.set(ws, meta);
 }
 
 function unsubscribe(ws, topic) {
   if (!topicSubs.has(topic)) return;
   topicSubs.get(topic).delete(ws);
   if (topicSubs.get(topic).size === 0) topicSubs.delete(topic);
+  const meta = wsMeta.get(ws);
+  if (meta) {
+    meta.topics.delete(topic);
+    wsMeta.set(ws, meta);
+  }
 }
 
 function wsSend(ws, msg) {
@@ -177,7 +186,7 @@ wss.on('connection', (ws) => {
   ws.on('message', (raw) => {
     let msg;
     try { msg = JSON.parse(raw.toString()); } catch (_) { return; }
-    const { action, topics = [], nonce } = msg || {};
+    const { action, topics = [], nonce, userId } = msg || {};
     if (action === 'subscribe') {
       topics.forEach(t => subscribe(ws, t));
       wsSend(ws, { type: 'subscribed', topics, ts: new Date().toISOString() });
@@ -186,16 +195,35 @@ wss.on('connection', (ws) => {
       wsSend(ws, { type: 'unsubscribed', topics, ts: new Date().toISOString() });
     } else if (action === 'ping') {
       wsSend(ws, { type: 'pong', nonce, ts: new Date().toISOString() });
+    } else if (action === 'identify') {
+      const meta = wsMeta.get(ws) || { topics: new Set() };
+      meta.userId = userId;
+      wsMeta.set(ws, meta);
+      wsSend(ws, { type: 'identified', userId, ts: new Date().toISOString() });
     }
   });
 
   ws.on('close', () => {
     // Clean up subscriptions for this socket
+    const meta = wsMeta.get(ws);
     for (const [topic, set] of topicSubs.entries()) {
       if (set.has(ws)) {
         set.delete(ws);
         if (set.size === 0) topicSubs.delete(topic);
       }
     }
+    // Emit player.disconnected for room topics if identified
+    if (meta && meta.userId) {
+      for (const t of meta.topics || []) {
+        if (t.startsWith('room:')) {
+          const roomId = t.split(':')[1];
+          const room = rooms[roomId];
+          if (room && room.players.find(p => p.id === meta.userId)) {
+            broadcast(`room:${roomId}`, 'player.disconnected', { roomId, userId: meta.userId });
+          }
+        }
+      }
+    }
+    wsMeta.delete(ws);
   });
 });
