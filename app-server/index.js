@@ -202,8 +202,9 @@ app.get('/games/:id', (req, res) => {
 });
 
 // Start HTTP server and attach WS at /ws
-const server = app.listen(port, () => {
+const server = app.listen(port, '0.0.0.0', () => {
   console.log(`App Server running on http://localhost:${port}`);
+  console.log(`Also available on your network at http://192.168.1.143:${port}`);
 });
 
 const wss = new WebSocketServer({ noServer: true });

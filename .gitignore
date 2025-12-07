@@ -19,12 +19,17 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
 
 # Build outputs / coverage
 coverage/
 dist/
 build/
 .out/
+*.tsbuildinfo
 
 # Env & local config
 .env
@@ -35,6 +40,8 @@ build/
 
 # Cache
 .cache/
+.eslintcache
+.parcel-cache/
 
 # Node REPL history
 .node_repl_history

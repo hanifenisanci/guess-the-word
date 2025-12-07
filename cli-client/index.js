@@ -230,9 +230,10 @@ function ensureWs() {
         }
       } else if (type === 'guess.accepted') {
         const actor = data?.userId === userId ? 'You' : (players[data?.userId] || `Player ${data?.userId}`);
-        const verdict = data?.correct ? 'Correct!' : 'Not in the word.';
+        const verdict = data?.correct ? chalk.green('✓ Correct!') : chalk.red('✗ Not in the word');
         const revealed = data?.revealed || '';
-        console.log(chalk.cyan(`${actor} guessed '${data?.letter}'. ${verdict} Word: ${revealed}`));
+        console.log(chalk.cyan(`${actor} guessed '${data?.letter}'. ${verdict}`));
+        console.log(chalk.yellow(`Word: ${revealed} | Attempts left: ${data?.remainingAttempts || '?'}`));
       } else if (type === 'guess.rejected') {
         const actor = data?.userId === userId ? 'You' : (players[data?.userId] || `Player ${data?.userId}`);
         let reason = 'Guess rejected.';
