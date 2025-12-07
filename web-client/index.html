@@ -1,47 +1,101 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Guess The Word — Web Client</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <header>
-      <h1>Guess The Word</h1>
-      <p>Minimal web client — subscribe to room events and play.</p>
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Guess The Word Game Client</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: "#3b82f6",
+            "background-light": "#f3f4f6",
+            "background-dark": "#1f2937",
+          },
+          fontFamily: {
+            display: ["Fredoka", "sans-serif"],
+          },
+          borderRadius: {
+            DEFAULT: "0.5rem",
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body {
+      font-family: 'Fredoka', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-800 dark:text-gray-200 antialiased">
+  <div class="min-h-screen flex flex-col items-center p-4 sm:p-6 lg:p-8">
+    <header class="w-full max-w-4xl text-center mb-8">
+      <h1 class="text-4xl sm:text-5xl md:text-6xl font-bold text-primary mb-2">Guess The Word</h1>
+      <p class="text-base sm:text-lg text-gray-500 dark:text-gray-400">Minimal web client — subscribe to room events and play.</p>
     </header>
+    
+    <main class="w-full max-w-4xl space-y-8">
+      <!-- Setup Section -->
+      <section class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+        <h2 class="text-2xl sm:text-3xl font-semibold mb-6 text-gray-900 dark:text-white flex items-center">
+          <span class="material-icons mr-3 text-primary">settings</span>
+          Setup
+        </h2>
+        <div class="space-y-4">
+          <div class="flex flex-col sm:flex-row items-center gap-4">
+            <label class="font-medium whitespace-nowrap text-gray-700 dark:text-gray-300" for="username">Username</label>
+            <input class="flex-grow w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-primary focus:border-primary" id="username" placeholder="Enter your name" type="text" value="Alice"/>
+            <button id="registerBtn" class="w-full sm:w-auto bg-primary text-white font-semibold py-2 px-6 rounded-md hover:bg-blue-600 transition-colors duration-200">Register</button>
+          </div>
+          <div class="flex flex-col sm:flex-row items-center gap-4">
+            <button id="createRoomBtn" class="w-full sm:w-auto bg-green-500 text-white font-semibold py-2 px-6 rounded-md hover:bg-green-600 transition-colors duration-200">Create Room</button>
+            <label class="font-medium whitespace-nowrap text-gray-700 dark:text-gray-300" for="roomIdInput">Room ID</label>
+            <input class="flex-grow w-full bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-primary focus:border-primary" id="roomIdInput" placeholder="room id" type="text"/>
+            <button id="joinRoomBtn" class="w-full sm:w-auto bg-gray-600 text-white font-semibold py-2 px-6 rounded-md hover:bg-gray-700 transition-colors duration-200">Join Room</button>
+          </div>
+          <button id="startBtn" class="w-full sm:w-auto bg-red-500 text-white font-semibold py-2 px-6 rounded-md hover:bg-red-600 transition-colors duration-200">Start Game</button>
+        </div>
+      </section>
 
-    <section class="panel">
-      <h2>Setup</h2>
-      <div class="grid">
-        <label>Username <input id="username" placeholder="Alice" /></label>
-        <button id="registerBtn">Register</button>
-      </div>
-      <div class="grid">
-        <button id="createRoomBtn">Create Room</button>
-        <label>Room ID <input id="roomIdInput" placeholder="room id" /></label>
-        <button id="joinRoomBtn">Join Room</button>
-      </div>
-      <div class="grid">
-        <button id="startBtn">Start Game</button>
-      </div>
-    </section>
+      <!-- Play Section -->
+      <section class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+        <h2 class="text-2xl sm:text-3xl font-semibold mb-6 text-gray-900 dark:text-white flex items-center">
+          <span class="material-icons mr-3 text-primary">sports_esports</span>
+          Play
+        </h2>
+        <div class="space-y-4">
+          <div id="state" class="text-lg font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 p-4 rounded-md">
+            Not started
+          </div>
+          <div class="flex flex-col sm:flex-row items-center gap-4">
+            <label class="font-medium text-gray-700 dark:text-gray-300" for="letterInput">Letter</label>
+            <input class="w-full sm:w-auto flex-grow bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-md focus:ring-primary focus:border-primary text-center font-bold text-xl uppercase" id="letterInput" maxlength="1" placeholder="a" type="text"/>
+            <button id="guessBtn" class="w-full sm:w-auto bg-primary text-white font-semibold py-2 px-6 rounded-md hover:bg-blue-600 transition-colors duration-200">Guess</button>
+          </div>
+        </div>
+      </section>
 
-    <section class="panel">
-      <h2>Play</h2>
-      <div class="grid">
-        <label>Letter <input id="letterInput" maxlength="1" placeholder="a" /></label>
-        <button id="guessBtn">Guess</button>
-      </div>
-      <div id="state" class="state"></div>
-    </section>
-
-    <section class="panel">
-      <h2>Events</h2>
-      <pre id="events" class="events"></pre>
-    </section>
-
-    <script src="app.js"></script>
-  </body>
-  </html>
+      <!-- Events Section -->
+      <section class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+        <h2 class="text-2xl sm:text-3xl font-semibold mb-6 text-gray-900 dark:text-white flex items-center">
+          <span class="material-icons mr-3 text-primary">event_note</span>
+          Events
+        </h2>
+        <div class="bg-gray-900 text-gray-300 p-4 rounded-md font-mono text-xs sm:text-sm overflow-x-auto max-h-96 overflow-y-auto">
+          <pre id="events"><code>Waiting for events...</code></pre>
+        </div>
+      </section>
+    </main>
+  </div>
+  
+  <script src="app.js"></script>
+</body>
+</html>

@@ -7,6 +7,17 @@ const app = express();
 const port = 3000;
 app.use(express.json());
 
+// Enable CORS for web client
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // In-memory stores
 const users = {}; // id -> { id, username }
 const rooms = {}; // id -> { id, number, players: [user], status, currentTurn?, gameId? }
@@ -50,11 +61,19 @@ app.get('/users/:id', (req, res) => {
 });
 
 // Rooms
-app.post('/rooms', (_req, res) => {
+app.post('/rooms', (req, res) => {
+  const { userId } = req.body || {};
   const id = Date.now().toString();
   const number = nextRoomNumber++;
   rooms[id] = { id, number, players: [], status: 'waiting' };
-  broadcast(`room:${id}`, 'room.created', { roomId: id, number, players: [], status: 'waiting' });
+  
+  // Auto-join creator to the room if userId provided
+  if (userId && users[userId]) {
+    rooms[id].players.push(users[userId]);
+    broadcast(`room:${id}`, 'room.joined', { roomId: id, number, user: users[userId], players: rooms[id].players, status: rooms[id].status });
+  }
+  
+  broadcast(`room:${id}`, 'room.created', { roomId: id, number, players: rooms[id].players, status: rooms[id].status });
   res.status(201).send(rooms[id]);
 });
 
@@ -72,7 +91,8 @@ app.put('/rooms/:id/join', (req, res) => {
   const u = users[userId];
   if (!u) return res.status(400).send({ error: 'Invalid user ID' });
   if (room.players.find(p => p.id === userId)) {
-    return res.status(409).send({ error: 'Already joined' });
+    // Idempotent join: return current room state instead of error
+    return res.send(room);
   }
   if (room.players.length >= 2) return res.status(400).send({ error: 'Room is full' });
   room.players.push(u);
@@ -134,7 +154,9 @@ app.post('/rooms/:id/guess', (req, res) => {
     return res.status(409).send({ error: 'Not your turn' });
   }
   const game = games[room.gameId];
-  if (!game || game.status !== 'playing') return res.status(400).send({ error: 'Invalid game' });
+  if (!game) return res.status(404).send({ error: 'Game not found' });
+  if (game.status !== 'playing') return res.status(400).send({ error: 'Game already finished' });
+  if (room.players.length !== 2) return res.status(400).send({ error: 'Room must have 2 players' });
   const ltr = letter.toLowerCase();
   if (game.guessedLetters.includes(ltr)) {
     broadcast(`room:${room.id}`, 'guess.rejected', { roomId: room.id, gameId: room.gameId, userId, letter, reason: 'already-guessed' });
@@ -151,7 +173,8 @@ app.post('/rooms/:id/guess', (req, res) => {
 
   if (game.status === 'playing') {
     const other = room.players.find(p => p.id !== userId);
-    room.currentTurn = other ? other.id : room.currentTurn;
+    if (!other) return res.status(500).send({ error: 'Cannot find other player' });
+    room.currentTurn = other.id;
     broadcast(`room:${room.id}`, 'turn.changed', { roomId: room.id, gameId: room.gameId, currentTurn: room.currentTurn });
   } else if (game.status === 'won') {
     broadcast(`room:${room.id}`, 'game.won', { roomId: room.id, gameId: room.gameId, winner: userId, revealed, remainingAttempts: game.remainingAttempts });
@@ -193,23 +216,31 @@ server.on('upgrade', (req, socket, head) => {
 
 wss.on('connection', (ws) => {
   ws.on('message', (raw) => {
-    let msg; try { msg = JSON.parse(raw.toString()); } catch { return; }
+    let msg;
+    try { msg = JSON.parse(raw.toString()); } catch { return; }
     const { action, topics = [], nonce } = msg || {};
-    if (action === 'subscribe') {
-      topics.forEach(t => {
-        if (!topicSubs.has(t)) topicSubs.set(t, new Set());
-        topicSubs.get(t).add(ws);
-      });
-      ws.send(JSON.stringify({ type: 'subscribed', topics, ts: new Date().toISOString() }));
-    } else if (action === 'unsubscribe') {
-      topics.forEach(t => {
-        const set = topicSubs.get(t);
-        if (set) { set.delete(ws); if (set.size === 0) topicSubs.delete(t); }
-      });
-      ws.send(JSON.stringify({ type: 'unsubscribed', topics, ts: new Date().toISOString() }));
-    } else if (action === 'ping') {
-      ws.send(JSON.stringify({ type: 'pong', nonce, ts: new Date().toISOString() }));
+    try {
+      if (action === 'subscribe') {
+        topics.forEach(t => {
+          if (!topicSubs.has(t)) topicSubs.set(t, new Set());
+          topicSubs.get(t).add(ws);
+        });
+        ws.send(JSON.stringify({ type: 'subscribed', topics, ts: new Date().toISOString() }));
+      } else if (action === 'unsubscribe') {
+        topics.forEach(t => {
+          const set = topicSubs.get(t);
+          if (set) { set.delete(ws); if (set.size === 0) topicSubs.delete(t); }
+        });
+        ws.send(JSON.stringify({ type: 'unsubscribed', topics, ts: new Date().toISOString() }));
+      } else if (action === 'ping') {
+        ws.send(JSON.stringify({ type: 'pong', nonce, ts: new Date().toISOString() }));
+      }
+    } catch (err) {
+      console.error('WebSocket message handler error:', err);
     }
+  });
+  ws.on('error', (err) => {
+    console.error('WebSocket error:', err);
   });
   ws.on('close', () => {
     for (const [t, set] of topicSubs.entries()) {

@@ -11,8 +11,31 @@ let heartbeat;
 
 function logEvent(obj) {
   const pre = el('events');
-  const line = typeof obj === 'string' ? obj : JSON.stringify(obj);
-  pre.textContent += `\n${line}`;
+  let line;
+  
+  if (typeof obj === 'string') {
+    line = obj;
+  } else if (obj.type) {
+    // Format WebSocket events nicely
+    const eventType = obj.type.replace(/\./g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    line = `✓ ${eventType}`;
+    if (obj.data) {
+      if (obj.data.user) line += ` - ${obj.data.user.username || obj.data.user.id}`;
+      if (obj.data.roomId) line += ` (Room ${obj.data.roomId})`;
+      if (obj.data.gameId) line += ` (Game ${obj.data.gameId})`;
+    }
+  } else if (obj.error) {
+    line = `✗ ${obj.error}: ${obj.message || ''}`;
+  } else {
+    line = JSON.stringify(obj, null, 2);
+  }
+  
+  const current = pre.textContent;
+  if (current === 'Waiting for events...') {
+    pre.textContent = line;
+  } else {
+    pre.textContent += `\n${line}`;
+  }
   pre.scrollTop = pre.scrollHeight;
 }
 
@@ -28,7 +51,7 @@ async function put(url, body) {
 }
 
 function setState(s) {
-  el('state').textContent = s;
+  el('state').innerHTML = s;
 }
 
 function ensureWs() {
@@ -36,27 +59,29 @@ function ensureWs() {
   ws = new WebSocket('ws://localhost:3000/ws');
   ws.addEventListener('open', () => {
     logEvent('[ws] connected');
-    // Identify with current user if available
-    if (user?.id) {
-      ws.send(JSON.stringify({ action: 'identify', userId: user.id }));
-    }
   });
   ws.addEventListener('message', (ev) => {
     try {
       const msg = JSON.parse(ev.data);
       logEvent(msg);
       const { type, data } = msg;
-      if (type === 'room.started') {
+      if (type === 'room.waiting') {
+        setState('Waiting for other player to join...');
+      } else if (type === 'room.started') {
         gameId = data.gameId;
-        setState(`Room ${data.roomId} started. Turn: ${data.currentTurn}`);
+        const turnText = data.currentTurn === user?.id ? 'It is your turn.' : 'Wait for your turn.';
+        setState(`Room ${data.roomId} started. Turn: ${data.currentTurn}. ${turnText}`);
       } else if (type === 'guess.accepted') {
         setState(`Revealed: ${data.revealed} | Attempts: ${data.remainingAttempts} | Status: ${data.status}`);
       } else if (type === 'turn.changed') {
-        setState(`Turn: ${data.currentTurn}`);
+        const turnText = data.currentTurn === user?.id ? 'It is your turn.' : 'Wait for your turn.';
+        setState(`Turn: ${data.currentTurn}. ${turnText}`);
       } else if (type === 'game.won') {
-        setState(`Winner: ${data.winner}`);
+        const winnerText = data.winner === user?.id ? 'You won!' : 'Opponent won.';
+        setState(`Winner: ${data.winner}. ${winnerText}`);
       } else if (type === 'game.lost') {
-        setState(`Game lost.`);
+        const word = data.word ? ` The word was: ${data.word}` : '';
+        setState(`Game lost.${word}`);
       }
     } catch (e) {
       logEvent('[ws] message parse error');
@@ -93,21 +118,21 @@ el('registerBtn').addEventListener('click', async () => {
   const username = el('username').value.trim() || 'Alice';
   try {
     user = await post(`${api.base}/users`, { username });
-    logEvent({ type: 'user.registered', user });
+    logEvent(`✓ User Registered - ${user.username} (ID: ${user.id})`);
   } catch (e) {
-    logEvent({ error: 'register failed', message: String(e) });
+    logEvent({ error: 'Register Failed', message: String(e) });
   }
 });
 
 el('createRoomBtn').addEventListener('click', async () => {
   try {
-    const room = await post(`${api.base}/rooms`);
+    const room = await post(`${api.base}/rooms`, { userId: user?.id });
     roomId = room.id;
     el('roomIdInput').value = roomId;
     ensureWs();
     subscribeToRoom(roomId);
-    logEvent({ type: 'room.created', room });
-  } catch (e) { logEvent({ error: 'create room failed', message: String(e) }); }
+    logEvent(`✓ Room Created - Room ${room.number || room.id}`);
+  } catch (e) { logEvent({ error: 'Create Room Failed', message: String(e) }); }
 });
 
 el('joinRoomBtn').addEventListener('click', async () => {
@@ -118,17 +143,23 @@ el('joinRoomBtn').addEventListener('click', async () => {
     await put(`${api.base}/rooms/${roomId}/join`, { userId: user?.id });
     ensureWs();
     subscribeToRoom(roomId);
-    logEvent({ type: 'room.join', roomId, user });
-  } catch (e) { logEvent({ error: 'join failed', message: String(e) }); }
+    logEvent(`✓ Joined Room - ${roomId}`);
+  } catch (e) { logEvent({ error: 'Join Room Failed', message: String(e) }); }
 });
 
 el('startBtn').addEventListener('click', async () => {
   try {
     const res = await post(`${api.base}/rooms/${roomId}/start`);
-    gameId = res.gameId;
-    setState(`Room ${roomId} started. Turn: ${res.currentTurn}`);
-    logEvent({ type: 'room.started', res });
-  } catch (e) { logEvent({ error: 'start failed', message: String(e) }); }
+    if (res.status === 'waiting-for-opponent') {
+      setState('Waiting for other player to join...');
+      logEvent('⏳ Waiting For Opponent');
+    } else {
+      gameId = res.gameId;
+      const turnText = res.currentTurn === user?.id ? 'It is your turn.' : 'Wait for your turn.';
+      setState(`Room ${roomId} started. Turn: ${res.currentTurn}. ${turnText}`);
+      logEvent('✓ Game Started');
+    }
+  } catch (e) { logEvent({ error: 'Start Game Failed', message: String(e) }); }
 });
 
 el('guessBtn').addEventListener('click', async () => {
@@ -137,7 +168,7 @@ el('guessBtn').addEventListener('click', async () => {
     if (!letter) return;
     const res = await post(`${api.base}/rooms/${roomId}/guess`, { userId: user?.id, letter });
     setState(`Revealed: ${res.revealed} | Attempts: ${res.remainingAttempts} | Status: ${res.status}`);
-    logEvent({ type: 'guess', res });
+    logEvent(`✓ Guessed Letter: ${letter.toUpperCase()} - ${res.correct ? 'Correct!' : 'Not in word'}`);
     el('letterInput').value = '';
-  } catch (e) { logEvent({ error: 'guess failed', message: String(e) }); }
+  } catch (e) { logEvent({ error: 'Guess Failed', message: String(e) }); }
 });
