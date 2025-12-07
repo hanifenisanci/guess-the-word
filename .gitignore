@@ -1,0 +1,45 @@
+# Node dependencies
+node_modules/
+app-server/node_modules/
+cli-client/node_modules/
+room-service/node_modules/
+user-service/node_modules/
+games-rules-service/node_modules/
+web-client/node_modules/
+
+# Logs and temp files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+*.tmp
+*.temp
+
+# OS and editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Build outputs / coverage
+coverage/
+dist/
+build/
+.out/
+
+# Env & local config
+.env
+*.local
+
+# PowerShell job outputs (if any)
+*.ps1.tmp
+
+# Cache
+.cache/
+
+# Node REPL history
+.node_repl_history
+
+# Lock files: keep package-lock.json (recommended), ignore others
+# Uncomment to ignore lock files if you prefer
+# package-lock.json
+# yarn.lock
