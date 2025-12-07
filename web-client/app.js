@@ -1,6 +1,5 @@
 const api = {
-  users: 'http://localhost:3001',
-  rooms: 'http://localhost:3002',
+  base: 'http://localhost:3000'
 };
 
 const el = (id) => document.getElementById(id);
@@ -34,7 +33,7 @@ function setState(s) {
 
 function ensureWs() {
   if (ws && ws.readyState === WebSocket.OPEN) return;
-  ws = new WebSocket('ws://localhost:3002/ws');
+  ws = new WebSocket('ws://localhost:3000/ws');
   ws.addEventListener('open', () => {
     logEvent('[ws] connected');
     // Identify with current user if available
@@ -93,7 +92,7 @@ function subscribeToRoom(id) {
 el('registerBtn').addEventListener('click', async () => {
   const username = el('username').value.trim() || 'Alice';
   try {
-    user = await post(`${api.users}/users`, { username });
+    user = await post(`${api.base}/users`, { username });
     logEvent({ type: 'user.registered', user });
   } catch (e) {
     logEvent({ error: 'register failed', message: String(e) });
@@ -102,7 +101,7 @@ el('registerBtn').addEventListener('click', async () => {
 
 el('createRoomBtn').addEventListener('click', async () => {
   try {
-    const room = await post(`${api.rooms}/rooms`);
+    const room = await post(`${api.base}/rooms`);
     roomId = room.id;
     el('roomIdInput').value = roomId;
     ensureWs();
@@ -116,7 +115,7 @@ el('joinRoomBtn').addEventListener('click', async () => {
     const id = el('roomIdInput').value.trim();
     if (!id) throw new Error('room id required');
     roomId = id;
-    await put(`${api.rooms}/rooms/${roomId}/join`, { userId: user?.id });
+    await put(`${api.base}/rooms/${roomId}/join`, { userId: user?.id });
     ensureWs();
     subscribeToRoom(roomId);
     logEvent({ type: 'room.join', roomId, user });
@@ -125,7 +124,7 @@ el('joinRoomBtn').addEventListener('click', async () => {
 
 el('startBtn').addEventListener('click', async () => {
   try {
-    const res = await post(`${api.rooms}/rooms/${roomId}/start`);
+    const res = await post(`${api.base}/rooms/${roomId}/start`);
     gameId = res.gameId;
     setState(`Room ${roomId} started. Turn: ${res.currentTurn}`);
     logEvent({ type: 'room.started', res });
@@ -136,7 +135,7 @@ el('guessBtn').addEventListener('click', async () => {
   try {
     const letter = el('letterInput').value.trim().toLowerCase();
     if (!letter) return;
-    const res = await post(`${api.rooms}/rooms/${roomId}/guess`, { userId: user?.id, letter });
+    const res = await post(`${api.base}/rooms/${roomId}/guess`, { userId: user?.id, letter });
     setState(`Revealed: ${res.revealed} | Attempts: ${res.remainingAttempts} | Status: ${res.status}`);
     logEvent({ type: 'guess', res });
     el('letterInput').value = '';
